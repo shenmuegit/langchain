@@ -1869,6 +1869,62 @@ EXPERIMENTAL_MARKDOWN_DOCUMENT = (
 )
 
 
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+@pytest.mark.parametrize("opening_indent", range(4))
+@pytest.mark.parametrize("closing_indent", range(4))
+def test_experimental_markdown_indented_fences(
+    fence: str, opening_indent: int, closing_indent: int
+) -> None:
+    code_block = (
+        f"{' ' * opening_indent}{fence}python\n"
+        "# code comment\n"
+        f"{' ' * closing_indent}{fence}\n"
+    )
+    splitter = ExperimentalMarkdownSyntaxTextSplitter(
+        headers_to_split_on=[("#", "title")]
+    )
+
+    assert splitter.split_text(f"# Guide\n\n{code_block}\nafter\n") == [
+        Document(
+            page_content=code_block,
+            metadata={"title": "Guide", "Code": "python"},
+        ),
+        Document(page_content="\nafter\n", metadata={"title": "Guide"}),
+    ]
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_experimental_markdown_four_space_fences(fence: str) -> None:
+    text = f"    {fence}python\n    print('ok')\n    {fence}\n"
+    splitter = ExperimentalMarkdownSyntaxTextSplitter()
+
+    assert splitter.split_text(text) == [Document(page_content=text)]
+
+
+@pytest.mark.parametrize(
+    ("fence", "inner_line", "closing_fence"),
+    [
+        ("```", " ```text\n", "```"),
+        ("```", " ~~~\n", "```"),
+        ("````", " ```\n", "````"),
+        ("```", " ``` extra\n", "```"),
+        ("```", "    ```\n", "```"),
+        ("~~~", " ```\n", "~~~"),
+        ("```", "content\n", "````"),
+    ],
+)
+def test_experimental_markdown_indented_fence_boundaries(
+    fence: str, inner_line: str, closing_fence: str
+) -> None:
+    code_block = f"{fence}python\n{inner_line}x\n{closing_fence}\n"
+    splitter = ExperimentalMarkdownSyntaxTextSplitter()
+
+    assert splitter.split_text(f"{code_block}after\n") == [
+        Document(page_content=code_block, metadata={"Code": "python"}),
+        Document(page_content="after\n"),
+    ]
+
+
 def test_experimental_markdown_syntax_text_splitter() -> None:
     """Test experimental markdown syntax splitter."""
     markdown_splitter = ExperimentalMarkdownSyntaxTextSplitter()

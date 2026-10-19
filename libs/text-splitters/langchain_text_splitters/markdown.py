@@ -440,11 +440,15 @@ class ExperimentalMarkdownSyntaxTextSplitter:
         self.current_header_stack.append((header_depth, header_text))
 
     def _resolve_code_chunk(self, current_line: str, raw_lines: list[str]) -> str:
+        opening_line = current_line.lstrip(" ")
+        fence = opening_line[0]
+        fence_length = len(opening_line) - len(opening_line.lstrip(fence))
+        closing_fence = re.compile(rf"^ {{0,3}}{fence}{{{fence_length},}}[ \t]*\r?$")
         chunk = current_line
         while raw_lines:
             raw_line = raw_lines.pop(0)
             chunk += raw_line
-            if self._match_code(raw_line):
+            if closing_fence.match(raw_line):
                 return chunk
         return ""
 
@@ -471,8 +475,7 @@ class ExperimentalMarkdownSyntaxTextSplitter:
 
     @staticmethod
     def _match_code(line: str) -> re.Match[str] | None:
-        matches = [re.match(rule, line) for rule in [r"^```(.*)", r"^~~~(.*)"]]
-        return next((match for match in matches if match), None)
+        return re.match(r"^ {0,3}(?:`{3,}|~{3,})(.*)", line)
 
     @staticmethod
     def _match_horz(line: str) -> re.Match[str] | None:
